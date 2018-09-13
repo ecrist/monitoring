@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2007, Eric F Crist
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or 
+# without modification, are permitted provided that the following 
+# conditions are met:
+#
+# Redistributions of source code must retain the above copyright 
+# notice, this list of conditions and the following disclaimer.
+# 
+# Redistributions in binary form must reproduce the above copyright 
+# notice, this list of conditions and the following disclaimer in 
+# the documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# $Id: check_bmc_ps 319 2011-02-26 04:41:00Z ecrist $
+# $HeadURL: https://www.secure-computing.net/svn/trunk/nagios/check_bmc_ps $
+use strict;
+use warnings;
+
+use POSIX ();
+
+my ($sysname, $nodename, $release, $version, $machine);
+($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
+
+if ($sysname eq "FreeBSD") {
+        use lib "/usr/local/libexec/nagios";
+} else {
+        use lib "/usr/local/nagios/libexec";
+}
+
+use utils qw(%ERRORS);
+
+my $usage = "
+Usage: $0 host_addr ipmi_user ipmi_pass
+
+Connects to a Dell BMC and parses the Drive token for RAID status
+and disk slot errors.";
+
+# Gets output of ipmi command, this is funny with IPMI v2, we *sometimes* get an Authentication type error.
+if (my $result = `/usr/local/bin/ipmitool -I lan -H $ARGV[0] -U $ARGV[1] -P $ARGV[2] sdr type "Power Supply" 2>/dev/null | grep -v "Authentication"`) {
+# Check for authentication type error, and ignore it if it's there.
+
+# XXX Debug lines XXX
+#print "Raw Status: $result\n";
+#print "My Status = \"$status[4]\"\n";
+
+my $status_text = "";
+my $err_lvl = 0;
+my $status;
+my $ps_seq =1;
+my $perfdata = "| ";
+
+foreach my $line (split /\n/s, $result){
+	if (my @fields = split(/\|\s/,$line)){
+		chomp($status = $fields[4]);
+		
+		if (($fields[0] =~ m/^Status\s*/g) and ($status =~ m/^Presence detected, Failure detected, Power Supply AC lost\Z/g)){
+			$status_text .= "PS$ps_seq:(A/C Lost) ";
+			$perfdata .= "PS$ps_seq=0 ";
+			$err_lvl++;
+		} elsif (($fields[0] =~ m/^Status\s*/g) and ($status =~ m/^Presence detected, Failure detected\Z/g)){
+			$status_text .= "PS$ps_seq:(Fail) ";
+			$perfdata .= "PS$ps_seq=0 ";
+			$err_lvl++;
+		} elsif (($fields[0] =~ m/^Status\s*/g) and ($status =~ m/^Failure detected, Power Supply AC lost\Z/g)){
+			$status_text .= "PS$ps_seq:(Fail) ";
+			$perfdata .= "PS$ps_seq=0 ";
+			$err_lvl++;
+		} elsif (($fields[0] =~ m/^PS Redundancy\s*/g) and ($status =~ m/^Redundancy Lost\Z/g)){
+			$status_text .= "PS Redundancy Lost";
+			$perfdata .= "PSR=0 ";
+			$err_lvl++;
+		} elsif (($fields[0] =~ m/^Status\s*/g) and ($status =~ m/^Presence detected\Z/g)){
+			$status_text .= "PS$ps_seq:(OK) ";
+			$perfdata .= "PS$ps_seq=10 ";
+		} elsif (($fields[0] =~ m/^PS Redundancy\s*/g) and ($status =~ m/^Fully Redundant\Z/g)){
+			$status_text .= "PS Fully Redundant";
+			$perfdata .= "PSR=10 ";
+		}
+		
+	}
+	
+$ps_seq++;
+}
+
+	if ($err_lvl > 0) {
+		print "CRITICAL: $status_text $perfdata\n";
+		exit $ERRORS{'CRITICAL'}
+	} else {
+		print "NORMAL: $status_text $perfdata\n";
+		exit $ERRORS{'OK'}
+	}
+} else {
+	die $usage;
+}
+

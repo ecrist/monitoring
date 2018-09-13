@@ -1,0 +1,47 @@
+$Id: INSTALL 63 2009-07-15 14:56:31Z ecrist $
+$HeadURL: https://www.secure-computing.net/svn/trunk/nagvis/gadgets/thermo/INSTALL $
+
+=== QUICK INSTALL (Requires SVN) ===
+To install and have Thermo running the quickest:
+1) cd /path/to/nagvis/gadets/
+2) svn co http://www.secure-computing.net/svn/trunk/nagvis/gadgets/thermo
+3) mv thermo/thermo.php .
+4) svn co http://www.secure-computing.net/svn/trunk/nagvis/gadgets/gadgets_core.diff
+5) patch gadgets_core.php gadgets_core.diff
+
+At this point, you should be able to select thermo.php as a gadget from WUI and
+have a functional gadget.
+
+=== THE LONG WAY ===
+
+
+To install the thermo gadget, perform the following steps.
+
+1) Download a copy of thermo from the URL above, or use SVN to checkout
+   the entire directory with the following command:
+     svn co http://www.secure-computing.net/svn/trunk/nagvis/gadgets/thermo/
+   This will create a directory in your current working directory called
+   thermo, with all the required files.
+
+2) Move the thermo directory to you NagVis gadgets folder, which is usually
+   located somewhere such as /usr/local/www/nagvis/nagvis/gadgets/.
+
+3) Move the thermo.php file from the thermo folder up one level into the
+   gadgets folder.  
+
+4) All files within the thermo directory, the thermo directory, and the
+   thermo.php file need to be readable by the webserver.  It is safe to
+   run the following commands:
+     cd /path/to/gadgets/
+     chmod a+r thermo.php thermo/* & chmod a+x thermo/
+
+5) I have also written a patch for the NagVis gadgets_core.php which 
+   better supports the full Nagios performance data string.  As of NagVis
+   1.4, you will need to manually apply the patch as follows:
+     cd /path/to/gadgets/
+     svn co http://www.secure-computing.net/svn/trunk/nagvis/gadgets/gadgets_core.diff
+     patch gadgets_core.php gadgets_core.diff.txt
+
+6) I know there are going to be bugs.  Please report them, so I may fix them.
+   Send an email with bug reports to ecrist@secure-computing.net with a
+   detailed description of the problem.

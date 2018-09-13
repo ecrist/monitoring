@@ -1,0 +1,36 @@
+# $Id: gadgets_core.diff 57 2009-07-15 12:09:13Z ecrist $
+# $HeadURL: https://www.secure-computing.net/svn/trunk/nagvis/gadgets/gadgets_core.diff $
+47,53c47,57
+<  * aPerfparse[index]['label']     -   label of the perfdata
+<  *                  ['value']     -   actual perfdata
+<  *                  ['uom']       -   unit of measurement (might be NULL)
+<  *                  ['warning']   -   warning threshold (might be NULL)
+<  *                  ['critical']  -   critical threshold (might be NULL)
+<  *                  ['min']       -   minimum possible value (might be NULL)
+<  *                  ['max']       -   maximum possible value (might be NULL)
+---
+>  * aPerfparse[index]['label']         -   label of the perfdata
+>  *                  ['value']         -   actual perfdata
+>  *                  ['uom']           -   unit of measurement (might be NULL)
+>  *                  ['warning']       -   warning threshold (if over)
+>  *                  ['warning_min']   -   warning threshold (if under)
+>  *                  ['warning_max']   -   warning threshold (if over)
+>  *                  ['critical']      -   critical threshold (might be NULL)
+>  *                  ['critical_min']  -   critical threshold (if under)
+>  *                  ['critical_max']  -   critical threshold (if over)
+>  *                  ['min']           -   minimum possible value (might be NULL)
+>  *                  ['max']           -   maximum possible value (might be NULL)
+88a93,95
+> 	// We are trying to match the following string:
+> 	//  temp=78.8F;55:93;50:98;0;100;
+> 	//               metric    current    unit      warning          critical          min           max
+95d101
+< 	
+109a116,118
+> 			preg_match_all('/([\d\.]+):([\d\.]+)/',$aTmp[4], $matches);
+> 			$aSet['warning_min'] = $matches[1][0];
+> 			$aSet['warning_max'] = $matches[2][0];
+114a124,126
+> 			preg_match_all('/([\d\.]+):([\d\.]+)/',$aTmp[5], $matches);
+> 			$aSet['critical_min'] = $matches[1][0];
+> 			$aSet['critical_max'] = $matches[2][0];

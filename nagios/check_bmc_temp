@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2007, Eric F Crist
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or 
+# without modification, are permitted provided that the following 
+# conditions are met:
+#
+# Redistributions of source code must retain the above copyright 
+# notice, this list of conditions and the following disclaimer.
+# 
+# Redistributions in binary form must reproduce the above copyright 
+# notice, this list of conditions and the following disclaimer in 
+# the documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# $Id: check_bmc_temp 319 2011-02-26 04:41:00Z ecrist $
+# $HeadURL: https://www.secure-computing.net/svn/trunk/nagios/check_bmc_temp $
+
+use strict;
+use warnings;
+use POSIX ();
+
+my ($sysname, $nodename, $release, $version, $machine);
+($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
+
+if ($sysname eq "FreeBSD") {
+        use lib "/usr/local/libexec/nagios";
+} else {
+        use lib "/usr/local/nagios/libexec";
+}
+
+use utils qw(%ERRORS);
+
+my $usage = "
+Usage: $0 host_addr ipmi_user ipmi_pass low_temp hi_temp thresh
+
+Connects to a Dell BMC and parses the Temperature token for
+the Abmient Temp, and compares to the give high/low parameter.
+
+Enter either Celsius or Fahrenheit, as we guess what you're entering
+based on sane temperatures.
+
+thresh is the threshold limit for a high/low warning.";
+
+# Gets output of ipmi command, this is funny with IPMI v2, we *sometimes* get an Authentication type error.
+if (my $result = `/usr/local/bin/ipmitool -I lan -H $ARGV[0] -U $ARGV[1] -P $ARGV[2] sdr type "Temperature" 2>/dev/null | grep -v "Authentication"`) {
+
+	my $status;
+	my $disabled = 0;
+	my $lowtemp = $ARGV[3];
+	my $hightemp = $ARGV[4];
+	my $thresh = $ARGV[5];
+	my $c;
+	my $fmt;
+	
+	if (($hightemp >= 50) and ($lowtemp >= 32)) {
+		$c = "1";
+	} else {
+		$c = "0";
+	}
+	
+	foreach my $line (split /\n/s, $result){
+		if (my @fields = split(/\|\s/,$line)){
+			chomp($status = $fields[4]);
+			
+			if ($status =~ m/^Disabled\Z/g){
+				$disabled++;
+			} else {
+				$status =~ m/^(\d\d).*\Z/g;
+				my $temp = $1;
+				
+				if ($c) {
+					$temp = ($1*(9/5)+32);
+					$fmt = "F";
+				} else {
+					$fmt = "C";
+				}
+				my $highthresh = $hightemp - $thresh;
+				my $lowthresh = $lowtemp + $thresh;
+				if ($temp < $lowtemp){
+					print "CRITICAL: LOW AMBIENT TEMP ($temp $fmt) | temp=$temp$fmt;$lowthresh:$highthresh;$lowtemp:$hightemp;;\n";
+					exit $ERRORS{'CRITICAL'};
+				} elsif ($temp > $hightemp) {
+					print "CRITICAL: HIGH AMBIENT TEMP ($temp $fmt) | temp=$temp$fmt;$lowthresh:$highthresh;$lowtemp:$hightemp;;\n";
+					exit $ERRORS{'CRITICAL'};
+				} elsif (($temp <= ($lowtemp + $thresh)) or ($temp >= ($hightemp - $thresh))) {
+					print "WARNING: AMBIENT TEMP THRESHOLD ($temp $fmt) | temp=$temp$fmt;$lowthresh:$highthresh;$lowtemp:$hightemp;;\n";
+					exit $ERRORS{'WARNING'};
+				} elsif (($temp < $hightemp) and ($temp > $lowtemp)) {
+					print "OK: AMBIENT TEMP OK ($temp $fmt) | temp=$temp$fmt;$lowthresh:$highthresh;$lowtemp:$hightemp;;\n";
+					exit $ERRORS{'OK'}
+				}
+			}
+				
+		}
+		
+	}
+	
+} else {
+	die $usage;
+}

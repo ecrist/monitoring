@@ -1,0 +1,132 @@
+#!/bin/sh
+## $Id: check_apc 80 2009-10-26 18:34:35Z ecrist $
+
+## Nagios Plugin for apcupsd APC Smart-UPS
+## janthony@negative1.org
+## Modified by ecrist@secure-computing.net
+
+## Copyright (C) 2004  Joe Anthony
+## Copyright (C) 2009  Eric F Crist (Secure Computing Networks)
+
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+
+APCA="/usr/local/sbin/apcaccess"
+APCA_ARGS="status"
+
+#APCA="apcsnmp.pl"
+#APCA_ARGS="public fs1"
+
+WARN=$2
+CRIT=$3
+
+if [ ! -x $APCA ]; then
+	echo "$0: Error: $APCA not found!"
+	exit 3
+fi
+
+dishelp() {
+		echo "Usage: $0 <load|bcharge|time> WARN_VALUE CIRT_VALUE "
+		echo "       $0 status"
+		echo
+		echo "load (%): Warn when load is > WARN_VALUE, and CRIT when load is > CRIT_VALUE"
+		echo "bcharge (%): Warn when charge is < WARN_VALUE, and CRIT when charge is < CRIT_VALUE"
+		echo "time (minutes): Warn when time is < WARN_VALUE, and CRIT when time is < CRIT_VALUE"
+		echo "staus: Crit if not online"
+		echo
+		echo "UNKNOWN UPS State"
+		exit 3
+}
+
+checkargs() {
+	if [ "$WARN" = '' -o "$CRIT" = '' ]; then
+		dishelp
+		exit 3
+	fi
+}
+
+case "$1" in 
+	load) 
+		checkargs
+		LOAD=`$APCA $APCA_ARGS | grep LOAD | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		if [ "$LOAD" -gt "$CRIT" ]; then
+			echo "UPS CRITICAL - Load:  ${LOAD}% | Load=${LOAD}%;${2};${3};0;100"
+			exit 2
+		fi			
+		if [ "$LOAD" -gt "$WARN" ]; then
+			echo "UPS WARNING - Load:  ${LOAD}% | Load=${LOAD}%;${2};${3};0;100"
+			exit 1
+		fi			
+		echo "UPS OK - LOAD: ${LOAD}% | Load=${LOAD}%;${2};${3};0;100"
+		exit 0
+		;;
+	bcharge)
+		checkargs
+		CHRG=`$APCA $APCA_ARGS | grep BCHARGE | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		if [ "$CHRG" -lt "$CRIT" ]; then
+			echo "UPS CRITICAL - Battery Charge:  ${CHRG}% | Charge=${CHRG}%;${2};${3};0;100"
+			exit 2
+		fi			
+		if [ "$CHRG" -lt "$WARN" ]; then
+			echo "UPS WARNING - Battery Charge:  ${CHRG}% | Charge=${CHRG}%;${2};${3};0;100"
+			exit 1
+		fi			
+		echo "UPS OK - Battery Charge: ${CHRG}% | Charge=${CHRG}%;${2};${3};0;100"
+		exit 0
+		;;
+	time)
+		checkargs
+		TLEFT=`$APCA $APCA_ARGS | grep TIMELEFT | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		if [ "$TLEFT" -lt "$CRIT" ]; then
+			echo "UPS CRITICAL - Time left:  ${TLEFT} mins | 'Time Remaining'=${TLEFT}m;${2};${3};0;100"
+			exit 2
+		fi			
+		if [ "$TLEFT" -lt "$WARN" ]; then
+			echo "UPS WARNING - Time Left:  ${TLEFT} mins | 'Time Remaining'=${TLEFT}m;${2};${3};0;100"
+			exit 1
+		fi			
+		echo "UPS OK - Time Left: ${TLEFT} mins | 'Time Remaining'=${TLEFT}m;${2};${3};0;100"
+		exit 0
+		;;
+	volts)
+		CVOLT=`$APCA $APCA_ARGS | grep -e '^LINEV' | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		LVOLT=`$APCA $APCA_ARGS | grep LOTRANS | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		HVOLT=`$APCA $APCA_ARGS | grep HITRANS | awk '{print $3}' | sed -e 's/\.[0-9]* *$//g'`
+		if [ $CVOLT -lt $LVOLT ]; then
+			echo "UPS CRITICAL - Low Voltage ${CVOLT} volts | 'Volts AC'=${CVOLT}V"
+			exit 2
+		fi
+		if [ "$CVOLT" -gt "$HVOLT" ]; then
+			echo "UPS CRITICAL - High Voltage ${CVOLT} volts | 'Volts AC'=${CVOLT}V"
+			exit 2
+		fi
+		echo "UPS OK - Voltage ${CVOLT} volts | 'Volts AC'=${CVOLT}V"
+		exit 0
+		;;
+	status)
+		ONLINE=`$APCA $APCA_ARGS | grep STATUS | awk '{print $3}'`
+		if [ "$ONLINE" != ONLINE ]; then
+			echo "UPS CRITICAL - $ONLINE"
+			exit 2
+		fi
+		echo "UPS OK - $ONLINE"
+		exit 0
+		;;
+	*)
+		dishelp
+esac
+
+
+
