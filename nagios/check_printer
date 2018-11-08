@@ -129,7 +129,6 @@ foreach(@values){
 		$string = join "", map {chr hex $_ } split m/ /, $string;
 	}
 	$finvalues{"$loid"} = $string;
-	if ($debug) { print "$string\n"; }
 }
 
 my %status;
