@@ -47,9 +47,10 @@ my $revision = $1;
 '$HeadURL: https://www.secure-computing.net/svn/trunk/nagios/check_printer $' =~ m/HeadURL: ([\w\:\/\-\.\_]+) /;
 my $src_url = $1;
 my $debug = 0;
-my ($host, $warning, $critical, @ignore);
+my ($host, @ignore);
 my $community = "public";
-
+my $warning = "15";
+my $critical = "10";
 our %getopts;
 Getopt::Long::Configure("bundling");
 GetOptions(
@@ -73,7 +74,6 @@ my $uom_oid = "7.1";
 my $max_oid  = "8.1";
 my $curr_oid = "9.1";
 my $loop;
-
 
 
 my $comm = $ARGV[1];
