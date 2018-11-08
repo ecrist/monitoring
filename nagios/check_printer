@@ -38,6 +38,7 @@ if ($OS =~ m/^\wBSD/){
 	use lib "/usr/local/nagios/libexec";
 }
 
+use Net::SNMP;
 use Data::Dumper;
 use Getopt::Long;
 use Pod::Usage;
@@ -51,6 +52,8 @@ my ($host, @ignore);
 my $community = "public";
 my $warning = "15";
 my $critical = "10";
+my $pages = 0;
+
 our %getopts;
 Getopt::Long::Configure("bundling");
 GetOptions(
@@ -61,6 +64,7 @@ GetOptions(
 	"i=i"		=>	\@ignore,
 	'V|version'	=>	sub { print '$Id: check_printer 363 2014-07-23 14:37:59Z ecrist $' ."\n"; exit 0 },
 	"d|debug"	=>	\$debug,
+	"p|pages"	=>	\$pages,
 	"man"		=>	sub { pod2usage(-exitstatus => 0, -verbose => 2); exit 0 }
 ) or pod2usage(2);
 
@@ -246,6 +250,14 @@ while (my($key, $value) = each(%status)){
 	$perf_str = "$perf_str '$key'=$current%;$warning;$critical;0;100 ";
 }
 
+# Add page count as a simple integer
+if ($pages) {
+	my $raw_pages = `snmpget -On -v 1 -c $community $host 1.3.6.1.2.1.43.10.2.1.4.1.1`;
+	$raw_pages =~ m/^([\.\d]+) = ([\w-]+):[\s\"]+([\(\)\-\d\w\s,\/:;]+)\"*$/;
+	$perf_str .= "'Total Page Count'=$3";	
+}
+
+
 if ($debug){
 	print Dumper(\%status);
 	print "\n\n############ ATTENTION ############\n";
@@ -293,6 +305,7 @@ Options:
 	-w, --warn		Warning threshold
 	-c, --crit		Critical threshold
 	-i, --ignore		Supply ignore.  See man page for more information (--man)
+	-p, --pages		Print total page count in performance data.
 	-V, --version		Prints version string and exits
 	-d, --debug		Prints debug output, useful when reporting a problem to the developer, or getting index numbers for --ignore
 	--man			Prints man page
@@ -357,6 +370,12 @@ $VAR1 = [
 In the above example, we are looking for the OID string starting with 
 B<.1.3.6.1.2.1.43.11.1.1.6.1> and the index is the last number. To exclude the
 Drum Unit, pass I<-i 2> to check_printer
+
+=item -p, --pages
+
+Print the page count for the device in the performance data output as an
+integer.  This does not cause any alerts on warn/crit since it is just an
+ever-increasing number.
 
 =item -V, --version
 
