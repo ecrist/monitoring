@@ -143,6 +143,7 @@ my $is_warn = 0;
 my $is_crit = 0;
 my $err_str = "";
 while (my($key, $value) = each(%status)){
+	$key =~ s/,/ /g;
 	my ($maximum, $current);
 	if (!exists($value->{"curr"}) || $value->{"curr"} == -3){
 		## we can process as yes/no
