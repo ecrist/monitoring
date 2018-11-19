@@ -212,10 +212,10 @@ if ($debug){
 	print '$Id: check_printer 363 2014-07-23 14:37:59Z ecrist $'."\n\n";
 }
 if ($is_crit){
-	print "$err_str CRITICAL.  See http://$ARGV[0] | $perf_str\n";
+	print "$err_str CRITICAL.  See http://$host | $perf_str\n";
 	exit 2;
 } elsif ($is_warn){
-	print "$err_str WARNING. See http://$ARGV[0] | $perf_str\n";
+	print "$err_str WARNING. See http://$host | $perf_str\n";
 	exit 1;
 } else {
 	print "Printer Supplies OK | $perf_str\n";
