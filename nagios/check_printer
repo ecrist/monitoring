@@ -196,12 +196,12 @@ while (my($key, $value) = each(%status)){
 	if ($debug){
 		print "Key: $key\nCur: $current\nWarn: $val_warning\nCrit: $val_critical\n";
 	}
-	$perf_str = "$perf_str '$key'=$current%;$val_warning;$val_critical;0;100 ";
+	$perf_str .= " '$key'=$current%;$val_warning;$val_critical;0;100";
 }
 
 # Add page count as a simple integer
 if ($pages) {
-	$perf_str .= "'Total Page Count'=".$result->{$host}{"pages"}{1};	
+	$perf_str .= " 'Total Page Count'=".$result->{$host}{"pages"}{1};
 }
 
 
