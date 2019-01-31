@@ -144,13 +144,15 @@ my $is_crit = 0;
 my $err_str = "";
 while (my($key, $value) = each(%status)){
 	$key =~ s/,/ /g;
-	my ($maximum, $current);
+	my ($maximum, $current, $val_critical, $val_warning);
+	$val_critical = $critical;
+	$val_warning = $warning;
 	if (!exists($value->{"curr"}) || $value->{"curr"} == -3){
 		## we can process as yes/no
 		$current = 100;
 		## Override the critical/warning, since they're moot
-		$critical = 0;
-		$warning = 0;
+		$val_critical = 0;
+		$val_warning = 0;
 	} elsif (($value->{"max"} == -2) and ($value->{"uom"} ne '%')){
 		## we don't know (-2 == unknown) the max and can't compute
 		next;
@@ -176,14 +178,14 @@ while (my($key, $value) = each(%status)){
 	} else {
 		$lcurrent = $current;
 	}
-	if ($lcurrent < $critical){
+	if ($lcurrent < $val_critical){
 		$is_crit = $is_crit + 1;
 		if ($err_str eq ""){
 			$err_str = "$key";
 		} else {
 			$err_str = "$err_str, $key";
 		}
-	} elsif ($lcurrent < $warning){
+	} elsif ($lcurrent < $val_warning){
 		$is_warn = $is_warn + 1;
 		if ($err_str eq ""){
 			$err_str = "$key";
@@ -192,9 +194,9 @@ while (my($key, $value) = each(%status)){
 		}
 	}
 	if ($debug){
-		print "Key: $key\nCur: $current\nWarn: $warning\nCrit: $critical\n";
+		print "Key: $key\nCur: $current\nWarn: $val_warning\nCrit: $val_critical\n";
 	}
-	$perf_str = "$perf_str '$key'=$current%;$warning;$critical;0;100 ";
+	$perf_str = "$perf_str '$key'=$current%;$val_warning;$val_critical;0;100 ";
 }
 
 # Add page count as a simple integer
